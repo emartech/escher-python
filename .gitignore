@@ -1,0 +1,8 @@
+*.pyc
+.*.swp
+*.log
+*~
+.DS_Store
+.idea
+.tox
+.coverage
