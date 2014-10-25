@@ -105,15 +105,23 @@ class Escher:
         ]))
         return request.request
 
+    def hmac_digest(self, key, message, is_hex=False):
+        if not isinstance(key, bytes):
+            key = key.encode('utf-8')
+        digest = hmac.new(key, message.encode('utf-8'), self.algo)
+        if is_hex:
+            return digest.hexdigest()
+        return digest.digest()
+
     def generate_signature(self, api_secret, req, headers_to_sign):
         canonicalized_request = self.canonicalize(req, headers_to_sign)
         string_to_sign = self.get_string_to_sign(canonicalized_request)
 
-        signing_key = hmac.new(self.algo_prefix + api_secret, self.short_date(self.current_time), self.algo).digest()
+        signing_key = self.hmac_digest(self.algo_prefix + api_secret, self.short_date(self.current_time))
         for data in self.credential_scope.split('/'):
-            signing_key = hmac.new(signing_key, data, self.algo).digest()
+            signing_key = self.hmac_digest(signing_key, data)
 
-        return hmac.new(signing_key, string_to_sign, self.algo).hexdigest()
+        return self.hmac_digest(signing_key, string_to_sign, True)
 
     def canonicalize(self, req, headers_to_sign):
         return "\n".join([
@@ -143,7 +151,7 @@ class Escher:
             self.algo_id,
             self.long_date(self.current_time),
             self.short_date(self.current_time) + '/' + self.credential_scope,
-            self.algo(canonicalized_request).hexdigest()
+            self.algo(canonicalized_request.encode('utf-8')).hexdigest()
         ])
 
     def create_algo(self):
