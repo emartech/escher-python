@@ -99,7 +99,8 @@ class Escher:
 
         signature = self.generate_signature(client['api_secret'], request, headers_to_sign)
         request.add_header(self.auth_header_name, ", ".join([
-            self.algo_id + ' Credential=' + client['api_key'],
+            self.algo_id + ' Credential=' + client['api_key'] + '/' + self.short_date(
+                self.current_time) + '/' + self.credential_scope,
             'SignedHeaders=' + self.prepare_headers_to_sign(headers_to_sign),
             'Signature=' + signature
         ]))

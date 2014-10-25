@@ -4,6 +4,27 @@ import datetime
 from escherauth.escherauth import Escher
 
 
+def read_request(suite, test, extension='req'):
+    file = open('tests/' + suite + '_testsuite/' + test + '.' + extension, 'r')
+    lines = (file.read()+"\n").splitlines()
+    file.close()
+
+    method, uri = lines[0].split(' ')[0:2]
+    headers = []
+    for header in lines[1:-2]:
+        key, value = header.split(':', 1)
+        headers.append((key, value.lstrip()))
+    body = lines[-1]
+
+    return {
+        'method': method,
+        'host': 'host.foo.com',
+        'uri': uri,
+        'headers': headers,
+        'body': body,
+    }
+
+
 class EscherAuthAmazonTest(unittest.TestCase):
     def setUp(self):
         self.escher = Escher('us-east-1/host/aws4_request', {
@@ -15,27 +36,17 @@ class EscherAuthAmazonTest(unittest.TestCase):
             'current_time': datetime.datetime(2011, 9, 9, 23, 36)
         })
 
+
     def test_signing(self):
-        request = {
-            'method': 'GET',
-            'host': 'host.foo.com',
-            'uri': '/?foo=bar',
-            'headers': [
-                ('Date', 'Mon, 09 Sep 2011 23:36:00 GMT'),
-                ('Host', 'host.foo.com'),
-            ],
-        }
+        request = read_request('aws4', 'get-vanilla-empty-query-key')
+        request_signed = read_request('aws4', 'get-vanilla-empty-query-key', 'sreq')
         request = self.escher.sign(request, {
             'api_key': 'AKIDEXAMPLE',
             'api_secret': 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY'
         })
-        self.assertEqual(request.get('method'), 'GET')
-        self.assertEqual(request.get('host'), 'host.foo.com')
-        self.assertEqual(request.get('uri'), '/?foo=bar')
-        self.assertListEqual(request.get('headers'), [
-            ('Date', 'Mon, 09 Sep 2011 23:36:00 GMT'),
-            ('Host', 'host.foo.com'),
-            ('Authorization', 'AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE, SignedHeaders=date;host, Signature=56c054473fd260c13e4e7393eb203662195f5d4a1fada5314b8b52b23f985e9f')
-        ])
-        self.assertEqual(request.get('body'), None)
+        self.assertEqual(request.get('method'), request_signed.get('method'))
+        self.assertEqual(request.get('host'), request_signed.get('host'))
+        self.assertEqual(request.get('uri'), request_signed.get('uri'))
+        self.assertListEqual(request.get('headers'), request_signed.get('headers'))
+        self.assertEqual(request.get('body'), request_signed.get('body'))
 
