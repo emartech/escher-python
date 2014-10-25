@@ -3,7 +3,11 @@ import hmac
 import requests
 
 from hashlib import sha256, sha512
-from urlparse import urlparse, parse_qsl
+
+try:
+    from urlparse import urlparse, parse_qsl
+except:
+    from urllib.parse import urlparse, parse_qsl
 
 
 class EscherRequestsAuth(requests.auth.AuthBase):
@@ -119,7 +123,7 @@ class Escher:
             self.canonicalize_headers(req.headers()),
             '',
             self.prepare_headers_to_sign(headers_to_sign),
-            self.algo(req.body()).hexdigest()
+            self.algo(req.body().encode('utf-8')).hexdigest()
         ])
 
     def canonicalize_headers(self, headers):

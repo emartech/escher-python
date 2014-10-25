@@ -1,7 +1,7 @@
 import unittest
 import datetime
 
-from escherauth import Escher
+from escherauth.escherauth import Escher
 
 
 class EscherAuthAmazonTest(unittest.TestCase):

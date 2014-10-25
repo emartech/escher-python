@@ -1,6 +1,6 @@
 import unittest
 
-from escherauth import EscherRequest
+from escherauth.escherauth import EscherRequest
 
 
 class EscherRequestTest(unittest.TestCase):
