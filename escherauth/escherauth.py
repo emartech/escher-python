@@ -8,8 +8,9 @@ from hashlib import sha256, sha512
 
 try:
     from urlparse import urlparse, parse_qsl, urljoin
+    from urllib import quote
 except:
-    from urllib.parse import urlparse, parse_qsl, urljoin
+    from urllib.parse import urlparse, parse_qsl, urljoin, quote
 
 
 class EscherRequestsAuth(requests.auth.AuthBase):
@@ -168,7 +169,7 @@ class Escher:
         safe = "~+!'()*"
         query_list = []
         for key, value in query_parts:
-            query_list.append(urllib.quote(key, safe=safe) + '=' + urllib.quote(value, safe=safe))
+            query_list.append(quote(key, safe=safe) + '=' + quote(value, safe=safe))
         return "&".join(sorted(query_list))
 
     def get_string_to_sign(self, canonicalized_request):
