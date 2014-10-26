@@ -1,13 +1,15 @@
 import datetime
 import hmac
 import requests
+import urllib
+import re
 
 from hashlib import sha256, sha512
 
 try:
-    from urlparse import urlparse, parse_qsl
+    from urlparse import urlparse, parse_qsl, urljoin
 except:
-    from urllib.parse import urlparse, parse_qsl
+    from urllib.parse import urlparse, parse_qsl, urljoin
 
 
 class EscherRequestsAuth(requests.auth.AuthBase):
@@ -20,12 +22,24 @@ class EscherRequestsAuth(requests.auth.AuthBase):
 
 
 class EscherRequest():
+    _uri_regex = re.compile('([^?#]*)(\?(.*))?')
+
     def __init__(self, request):
         self.type = type(request)
         self.request = request
+        self.prepare_request_uri()
 
     def request(self):
         return self.request
+
+    def prepare_request_uri(self):
+        if self.type is requests.models.PreparedRequest:
+            self.uri = self.request.path_url
+        if self.type is dict:
+            self.request_uri = self.request['uri']
+        match = re.match(self._uri_regex, self.request_uri)
+        self.uri_path = match.group(1)
+        self.uri_query = match.group(3)
 
     def method(self):
         if self.type is requests.models.PreparedRequest:
@@ -40,20 +54,10 @@ class EscherRequest():
             return self.request['host']
 
     def path(self):
-        if self.type is requests.models.PreparedRequest:
-            path_url = urlparse(self.request.path_url)
-            return path_url.path
-        if self.type is dict:
-            path_url = urlparse(self.request['uri'])
-            return path_url.path
+        return self.uri_path
 
     def query_parts(self):
-        if self.type is requests.models.PreparedRequest:
-            path_url = urlparse(self.request.path_url)
-            return parse_qsl(path_url.query)
-        if self.type is dict:
-            path_url = urlparse(self.request['uri'])
-            return parse_qsl(path_url.query)
+        return parse_qsl((self.uri_query or '').replace(';', '%3b'), True)
 
     def headers(self):
         if self.type is requests.models.PreparedRequest:
@@ -78,6 +82,8 @@ class EscherRequest():
 
 
 class Escher:
+    _normalize_path = re.compile('([^/]+/\.\./?|/\./|//|/\.$|/\.\.$)')
+
     def __init__(self, credential_scope, options={}):
         self.credential_scope = credential_scope
         self.algo_prefix = options.get('algo_prefix', 'ESR')
@@ -127,7 +133,7 @@ class Escher:
     def canonicalize(self, req, headers_to_sign):
         return "\n".join([
             req.method(),
-            req.path(),
+            self.canonicalize_path(req.path()),
             self.canonicalize_query(req.query_parts()),
             self.canonicalize_headers(req.headers()),
             '',
@@ -135,16 +141,34 @@ class Escher:
             self.algo(req.body().encode('utf-8')).hexdigest()
         ])
 
+    def canonicalize_path(self, path):
+        changes = 1
+        while changes > 0:
+            path, changes = self._normalize_path.subn('/', path, 1)
+        return path
+
     def canonicalize_headers(self, headers):
         headers_list = []
         for key, value in iter(sorted(headers)):
-            headers_list.append(key.lower() + ':' + value)
-        return "\n".join(headers_list)
+            headers_list.append(key.lower() + ':' + self.normalize_white_spaces(value))
+        return "\n".join(sorted(headers_list))
+
+    def normalize_white_spaces(self, value):
+        index = 0
+        value_normalized = []
+        pattern = re.compile(r'\s+')
+        for part in value.split('"'):
+            if index % 2 == 0:
+                part = pattern.sub(' ', part)
+            value_normalized.append(part)
+            index += 1
+        return '"'.join(value_normalized).strip()
 
     def canonicalize_query(self, query_parts):
+        safe = "~+!'()*"
         query_list = []
         for key, value in query_parts:
-            query_list.append(key + '=' + value)
+            query_list.append(urllib.quote(key, safe=safe) + '=' + urllib.quote(value, safe=safe))
         return "&".join(sorted(query_list))
 
     def get_string_to_sign(self, canonicalized_request):

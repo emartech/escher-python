@@ -38,17 +38,44 @@ class EscherAuthAmazonTest(unittest.TestCase):
         })
 
     @parameterized.expand([
-        ('aws4', 'get-space'),
-        ('aws4', 'get-unreserved'),
-        ('aws4', 'get-utf8'),
+        ('get-header-value-trim'),
+        ('get-relative'),
+        ('get-relative-relative'),
+        ('get-slash'),
+        ('get-slash-dot-slash'),
+        ('get-slash-pointless-dot'),
+        ('get-slashes'),
+        ('get-space'),
+        ('get-unreserved'),
+        ('get-utf8'),
+        ('get-vanilla'),
+        ('get-vanilla-empty-query-key'),
+        ('get-vanilla-query'),
+        ('get-vanilla-query-order-key'),
+        ('get-vanilla-query-order-key-case'),
+        ('get-vanilla-query-order-value'),
+        ('get-vanilla-query-unreserved'),
+        ('get-vanilla-ut8-query'),
+        ('post-header-key-case'),
+        ('post-header-key-sort'),
+        ('post-header-value-case'),
+        ('post-vanilla'),
+        ('post-vanilla-empty-query-value'),
+        ('post-vanilla-query'),
+        ('post-vanilla-query-nonunreserved'),
+        ('post-vanilla-query-space'),
+        ('post-x-www-form-urlencoded'),
+        ('post-x-www-form-urlencoded-parameters'),
     ])
-    def test_signing(self, suite, testcase):
+    def test_signing(self, testcase):
+        suite = 'aws4'
         request = read_request(suite, testcase)
         request_signed = read_request(suite, testcase, 'sreq')
+        headers_to_sign = [header[0].lower() for header in request['headers']]
         request = self.escher.sign(request, {
             'api_key': 'AKIDEXAMPLE',
             'api_secret': 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY'
-        })
+        }, headers_to_sign)
         self.assertEqual(request.get('method'), request_signed.get('method'))
         self.assertEqual(request.get('host'), request_signed.get('host'))
         self.assertEqual(request.get('uri'), request_signed.get('uri'))
