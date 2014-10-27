@@ -4,6 +4,8 @@ python:
   - "3.3"
   - "3.4"
   - "pypy"
+before_script:
+  - "pep8 --ignore=E501 escherauth"
 install:
   - pip install -r requirements.txt --use-mirrors
 script: nosetests
