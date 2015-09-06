@@ -4,7 +4,7 @@ from setuptools import setup
 setup(
     name='escherauth',
     description='Python implementation of the AWS4 compatible Escher HTTP request signing protocol.',
-    version='0.2.3',
+    version='0.2.4',
     author='Andras Barthazi',
     author_email='andras@barthazi.hu',
     license='MIT',
@@ -16,7 +16,7 @@ setup(
     ],
     zip_safe=False,
     install_requires=[
-        'requests>=1.2.3,<=2.0.1'
+        'requests>=1.2.3,<3.0.0'
     ],
     classifiers=[
         'Development Status :: 4 - Beta',
