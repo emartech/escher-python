@@ -136,7 +136,7 @@ class Escher:
             req.method(),
             self.canonicalize_path(req.path()),
             self.canonicalize_query(req.query_parts()),
-            self.canonicalize_headers(req.headers()),
+            self.canonicalize_headers(req.headers(), headers_to_sign),
             '',
             self.prepare_headers_to_sign(headers_to_sign),
             self.algo(req.body().encode('utf-8')).hexdigest()
@@ -148,10 +148,11 @@ class Escher:
             path, changes = self._normalize_path.subn('/', path, 1)
         return path
 
-    def canonicalize_headers(self, headers):
+    def canonicalize_headers(self, headers, headers_to_sign):
         headers_list = []
         for key, value in iter(sorted(headers)):
-            headers_list.append(key.lower() + ':' + self.normalize_white_spaces(value))
+            if key.lower() in headers_to_sign:
+                headers_list.append(key.lower() + ':' + self.normalize_white_spaces(value))
         return "\n".join(sorted(headers_list))
 
     def normalize_white_spaces(self, value):
