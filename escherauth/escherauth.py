@@ -35,7 +35,7 @@ class EscherRequest():
 
     def prepare_request_uri(self):
         if self.type is requests.models.PreparedRequest:
-            self.uri = self.request.path_url
+            self.request_uri = self.request.path_url
         if self.type is dict:
             self.request_uri = self.request['uri']
         match = re.match(self._uri_regex, self.request_uri)
