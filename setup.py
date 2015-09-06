@@ -2,7 +2,7 @@
 from setuptools import setup
 
 setup(
-    name='escher',
+    name='escherauth',
     description='Python implementation of the AWS4 compatible Escher HTTP request signing protocol.',
     long_description=open('README.md').read().strip(),
     version='0.2.0',
@@ -11,7 +11,7 @@ setup(
     license='MIT',
     url='http://escherauth.io/',
     download_url='https://github.com/emartech/escher-python',
-    py_modules=['escher'],
+    py_modules=['escherauth.escherauth'],
     packages=[
         'escherauth',
     ],

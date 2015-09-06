@@ -1,4 +1,7 @@
 *.pyc
+*.egg-info
+/build
+/dist
 .*.swp
 *.log
 *~
@@ -6,3 +9,4 @@
 .idea
 .tox
 .coverage
+
