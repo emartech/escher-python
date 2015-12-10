@@ -93,7 +93,7 @@ class Escher:
         self.current_time = options.get('current_time', datetime.datetime.utcnow())
         self.auth_header_name = options.get('auth_header_name', 'X-Escher-Auth')
         self.date_header_name = options.get('date_header_name', 'X-Escher-Date')
-        self.clock_skew = options.get('clock_skew', 900)
+        self.clock_skew = options.get('clock_skew', 300)
         self.algo = self.create_algo()
         self.algo_id = self.algo_prefix + '-HMAC-' + self.hash_algo
 
