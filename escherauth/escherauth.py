@@ -1,6 +1,7 @@
 import datetime
 import hmac
 import requests
+from requests.packages.urllib3.util import parse_url
 import urllib
 import re
 
@@ -50,7 +51,7 @@ class EscherRequest():
 
     def host(self):
         if self.type is requests.models.PreparedRequest:
-            return self.request.host
+            return parse_url(self.request.url).host
         if self.type is dict:
             return self.request['host']
 
@@ -104,6 +105,8 @@ class Escher:
             if header not in headers_to_sign:
                 headers_to_sign.append(header)
 
+        request.add_header('host', request.host())
+        request.add_header(self.date_header_name, self.long_date(self.current_time))
         signature = self.generate_signature(client['api_secret'], request, headers_to_sign)
         request.add_header(self.auth_header_name, ", ".join([
             self.algo_id + ' Credential=' + client['api_key'] + '/' + self.short_date(
