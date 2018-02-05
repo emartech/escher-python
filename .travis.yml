@@ -10,9 +10,24 @@ install:
   - pip install -r requirements.txt
 script: nosetests
 deploy:
-  provider: pypi
-  distributions: sdist bdist_egg
-  user: $PYPI_USERNAME
-  password: $PYPI_PASSWORD
-  on:
-    tags: true
+  - provider: pypi
+    distributions: sdist bdist_egg
+    user: $PYPI_USERNAME
+    password: $PYPI_PASSWORD
+    on:
+      tags: true
+      python: "2.7"
+  - provider: pypi
+    distributions: bdist_egg
+    user: $PYPI_USERNAME
+    password: $PYPI_PASSWORD
+    on:
+      tags: true
+      python: "3.3"
+  - provider: pypi
+    distributions: bdist_egg
+    user: $PYPI_USERNAME
+    password: $PYPI_PASSWORD
+    on:
+      tags: true
+      python: "3.4"
