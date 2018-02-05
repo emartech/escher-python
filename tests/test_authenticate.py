@@ -2,7 +2,7 @@ import unittest
 
 import datetime
 
-from escherauth import Escher, EscherException, AuthParams, AuthenticationValidator
+from escherauth.escherauth import Escher, EscherException, AuthParams, AuthenticationValidator
 
 
 class AuthParamsTest(unittest.TestCase):
