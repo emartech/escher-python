@@ -13,7 +13,7 @@ class AuthParamsTest(unittest.TestCase):
             params.get('test')
             self.fail('No exception thrown')
         except EscherException as e:
-            self.assertEqual('Missing authorization parameter: test', e.message)
+            self.assertEqual('Missing authorization parameter: test', str(e))
 
     def test_get_signed_headers(self):
         params = AuthParams([('X-EMS-SignedHeaders', 'host;date')], 'EMS')
@@ -65,42 +65,42 @@ class AuthenticationValidatorTest(unittest.TestCase):
             self.validator.validate_mandatory_signed_headers(['test'])
             self.fail('No exception thrown')
         except EscherException as e:
-            self.assertEqual('Host header is not signed', e.message)
+            self.assertEqual('Host header is not signed', str(e))
 
     def test_validate_hash_algo(self):
         try:
             self.validator.validate_hash_algo('test')
             self.fail('No exception thrown')
         except EscherException as e:
-            self.assertEqual('Only SHA256 and SHA512 hash algorithms are allowed', e.message)
+            self.assertEqual('Only SHA256 and SHA512 hash algorithms are allowed', str(e))
 
     def test_validate_dates_date_mismatch(self):
         try:
             self.validator.validate_dates(datetime.datetime(2011, 5, 11, 12, 0), datetime.datetime(2011, 5, 11, 12, 0), datetime.datetime(2011, 5, 10, 0, 0), 60, 300)
             self.fail('No exception thrown')
         except EscherException as e:
-            self.assertEqual('The request date and credential date do not match', e.message)
+            self.assertEqual('The request date and credential date do not match', str(e))
 
     def test_validate_dates_date_out_of_range(self):
         try:
             self.validator.validate_dates(datetime.datetime(2011, 5, 11, 12, 10), datetime.datetime(2011, 5, 11, 12, 0), datetime.datetime(2011, 5, 11, 0, 0), 60, 300)
             self.fail('No exception thrown')
         except EscherException as e:
-            self.assertEqual('Request date is not within the accepted time interval', e.message)
+            self.assertEqual('Request date is not within the accepted time interval', str(e))
 
     def test_validate_credential_scope(self):
         try:
             self.validator.validate_credential_scope('a', 'b')
             self.fail('No exception thrown')
         except EscherException as e:
-            self.assertEqual('Invalid credential scope (provided: b, required: a)', e.message)
+            self.assertEqual('Invalid credential scope (provided: b, required: a)', str(e))
 
     def test_validate_signature(self):
         try:
             self.validator.validate_signature('a', 'b')
             self.fail('No exception thrown')
         except EscherException as e:
-            self.assertEqual('The signatures do not match (provided: b, calculated: a)', e.message)
+            self.assertEqual('The signatures do not match (provided: b, calculated: a)', str(e))
 
 
 class AuthenticateTest(unittest.TestCase):
@@ -116,7 +116,7 @@ class AuthenticateTest(unittest.TestCase):
             escher.authenticate(self.get_request(uri), self.key_db)
             self.fail('No exception thrown')
         except EscherException as e:
-            self.assertEqual('Request date is not within the accepted time interval', e.message)
+            self.assertEqual('Request date is not within the accepted time interval', str(e))
 
     def test_authenticate_error_presigned_url_invalid_escher_key(self):
         escher = Escher(self.credential_scope, self.get_options('2011-05-11T12:00:00.000Z'))
@@ -126,7 +126,7 @@ class AuthenticateTest(unittest.TestCase):
             escher.authenticate(self.get_request(uri), self.key_db)
             self.fail('No exception thrown')
         except EscherException as e:
-            self.assertEqual('Invalid Escher key', e.message)
+            self.assertEqual('Invalid Escher key', str(e))
 
     def test_authenticate_valid_presigned_url_with_query(self):
         escher = Escher(self.credential_scope, self.get_options('2011-05-11T12:00:00.000Z'))
