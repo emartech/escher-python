@@ -67,7 +67,7 @@ class EscherRequest():
     def headers(self):
         if self.type is requests.models.PreparedRequest:
             headers = []
-            for key, value in self.request.headers.iteritems():
+            for key, value in self.request.headers.items():
                 headers.append([key, value])
             return headers
         if self.type is dict:
@@ -262,7 +262,7 @@ class Escher:
 
     def canonicalize_headers(self, headers, headers_to_sign):
         headers_list = []
-        for key, value in iter(sorted(headers)):
+        for key, value in sorted(headers):
             if key.lower() in headers_to_sign:
                 headers_list.append(key.lower() + ':' + self.normalize_white_spaces(value))
         return "\n".join(sorted(headers_list))
