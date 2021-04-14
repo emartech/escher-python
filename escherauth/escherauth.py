@@ -188,6 +188,8 @@ class Escher:
                 headers_to_sign.append(header)
 
         current_time = self.current_time or datetime.datetime.utcnow()
+        request.add_header(self.date_header_name, self.long_date(current_time))
+
         signature = self.generate_signature(client['api_secret'], request, headers_to_sign, current_time)
         request.add_header(self.auth_header_name, ", ".join([
             self.algo_id + ' Credential=' + client['api_key'] + '/' + self.short_date(
