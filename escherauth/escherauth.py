@@ -173,7 +173,7 @@ class Escher:
         self.algo_prefix = options.get('algo_prefix', 'ESR')
         self.vendor_key = options.get('vendor_key', 'Escher')
         self.hash_algo = options.get('hash_algo', 'SHA256')
-        self.current_time = options.get('current_time', datetime.datetime.utcnow())
+        self.current_time = options.get('current_time')
         self.auth_header_name = options.get('auth_header_name', 'X-Escher-Auth')
         self.date_header_name = options.get('date_header_name', 'X-Escher-Date')
         self.clock_skew = options.get('clock_skew', 300)
@@ -187,10 +187,13 @@ class Escher:
             if header not in headers_to_sign:
                 headers_to_sign.append(header)
 
-        signature = self.generate_signature(client['api_secret'], request, headers_to_sign, self.current_time)
+        current_time = self.current_time or datetime.datetime.utcnow()
+        request.add_header(self.date_header_name, self.long_date(current_time))
+
+        signature = self.generate_signature(client['api_secret'], request, headers_to_sign, current_time)
         request.add_header(self.auth_header_name, ", ".join([
             self.algo_id + ' Credential=' + client['api_key'] + '/' + self.short_date(
-                self.current_time) + '/' + self.credential_scope,
+                current_time) + '/' + self.credential_scope,
             'SignedHeaders=' + self.prepare_headers_to_sign(headers_to_sign),
             'Signature=' + signature
         ]))
