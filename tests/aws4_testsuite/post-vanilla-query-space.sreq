@@ -1,6 +1,0 @@
-POST /?f oo=b ar http/1.1
-Date:Mon, 09 Sep 2011 23:36:00 GMT
-Host:host.foo.com
-Date:20110909T233600Z
-Authorization: AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=date;host, Signature=42f087f5c310d7c5b041e03d66a783f374ac749f0c25a7ae93e41ab9248649fd
-

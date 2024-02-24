@@ -1,6 +1,0 @@
-GET /foo/bar/../.. http/1.1
-Date:Mon, 09 Sep 2011 23:36:00 GMT
-Host:host.foo.com
-Date:20110909T233600Z
-Authorization: AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=date;host, Signature=ee50b65f64c3db8e0ca3f8199feaa23585842a1d84869161452f1125cc8a507a
-

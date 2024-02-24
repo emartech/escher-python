@@ -16,7 +16,7 @@ setup(
     ],
     zip_safe=False,
     install_requires=[
-        'requests>=1.2.3,<3.0.0'
+        'requests>=2.0.0,<3.0.0'
     ],
     classifiers=[
         'Development Status :: 4 - Beta',

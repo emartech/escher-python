@@ -1,16 +1,12 @@
 import datetime
 import hmac
+
 import requests
-import urllib
 import re
 
 from hashlib import sha256, sha512
 
-try:
-    from urlparse import urlparse, parse_qsl, urljoin
-    from urllib import quote
-except:
-    from urllib.parse import urlparse, parse_qsl, urljoin, quote
+from urllib.parse import parse_qsl, quote, urlsplit, urlencode
 
 
 class EscherException(Exception):
@@ -23,16 +19,26 @@ class EscherRequestsAuth(requests.auth.AuthBase):
         self.client = client
 
     def __call__(self, request):
-        return self.escher.sign(request, self.client)
+        return self.escher.sign_request(request, self.client)
 
 
-class EscherRequest():
-    _uri_regex = re.compile('([^?#]*)(\?(.*))?')
+class EscherRequest:
+    _uri_regex = re.compile(r'([^?#]*)(\?(.*))?')
 
     def __init__(self, request):
         self.type = type(request)
         self.request = request
+        self.is_presigned_url = False
         self.prepare_request_uri()
+
+        if self.method() not in ('GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'CONNECT', 'OPTIONS', 'TRACE', 'PATCH'):
+            raise EscherException('The request method is invalid')
+
+        if self.path().startswith('http://') or self.path().startswith('https://'):
+            raise EscherException('The request url shouldn\'t contains http or https')
+
+        if self.method() in ('POST', 'PUT', 'PATCH') and self.body() is None:
+            raise EscherException(f'The request body shouldn\'t be empty if the request method is {self.method()}')
 
     def request(self):
         return self.request
@@ -41,16 +47,16 @@ class EscherRequest():
         if self.type is requests.models.PreparedRequest:
             self.request_uri = self.request.path_url
         if self.type is dict:
-            self.request_uri = self.request['uri']
+            self.request_uri = self.request['url']
         match = re.match(self._uri_regex, self.request_uri)
         self.uri_path = match.group(1)
         self.uri_query = match.group(3)
 
     def method(self):
         if self.type is requests.models.PreparedRequest:
-            return self.request.method
+            return self.request.method.upper()
         if self.type is dict:
-            return self.request['method']
+            return self.request['method'].upper()
 
     def host(self):
         if self.type is requests.models.PreparedRequest:
@@ -64,6 +70,9 @@ class EscherRequest():
     def query_parts(self):
         return parse_qsl((self.uri_query or '').replace(';', '%3b'), True)
 
+    def has_query_param(self, query_param):
+        return query_param.lower() in [key.lower() for key, value in self.query_parts()]
+
     def headers(self):
         if self.type is requests.models.PreparedRequest:
             headers = []
@@ -73,33 +82,71 @@ class EscherRequest():
         if self.type is dict:
             return self.request['headers']
 
+    def has_header(self, header):
+        return header.lower() in [key.lower() for key, value in self.headers()]
+
     def body(self):
+        if self.is_presigned_url:
+            return 'UNSIGNED-PAYLOAD'
         if self.type is requests.models.PreparedRequest:
-            return self.request.body or ''
+            return self.request.body or None
         if self.type is dict:
-            return self.request.get('body', '')
+            return self.request.get('body')
 
     def add_header(self, header, value):
         if self.type is requests.models.PreparedRequest:
             self.request.headers[header] = value
         if self.type is dict:
-            self.request['headers'].append((header, value))
+            self.request['headers'].append([header, value])
+
+    def set_presigned_url(self, is_presigned_url):
+        self.is_presigned_url = is_presigned_url
 
 
 class AuthParams:
-    def __init__(self, data, vendor_key):
-        self._init_data(data, 'X-' + vendor_key + '-')
+    @staticmethod
+    def from_headers(headers, algo_prefix, date_header_name, auth_header_name):
+        auth_data = None
+        date_data = None
+        for key, value in headers:
+            if key.lower() == auth_header_name.lower():
+                auth_data = value
+            if key.lower() == date_header_name.lower():
+                date_data = value
 
-    def _init_data(self, data, prefix):
-        self._data = {}
-        for (k, v) in data:
+        pattern = re.compile(rf'^({algo_prefix}-HMAC-[A-Z0-9,]+).*Credential=([A-Za-z0-9/\-_ ]+),.*SignedHeaders=([A-Za-z\-;]+),.*Signature=([0-9a-f]+)$')
+
+        if match := pattern.match(auth_data):
+            g = match.groups()
+
+            return AuthParams({
+                'algorithm': g[0],
+                'credentials': g[1],
+                'signedheaders': g[2],
+                'signature': g[3],
+                'date': date_data,
+            })
+        else:
+            raise EscherException('Could not parse auth header')
+
+    @staticmethod
+    def from_query_parts(query_parts, vendor_key):
+        prefix = 'X-' + vendor_key + '-'
+        data = {}
+        for (k, v) in query_parts:
             if k.startswith(prefix):
-                self._data[k.replace(prefix, '').lower()] = v
+                data[k.replace(prefix, '').lower()] = v
 
-    def get(self, name):
-        if name not in self._data:
+        return AuthParams(data)
+
+    def __init__(self, data):
+        self._data = data
+
+    def get(self, name, default_value=None):
+        value = self._data.get(name, default_value)
+        if value is None:
             raise EscherException('Missing authorization parameter: ' + name)
-        return self._data[name]
+        return value
 
     def get_signed_headers(self):
         return self.get('signedheaders').lower().split(';')
@@ -132,16 +179,20 @@ class AuthParams:
         return self.get_credential_data()[2]
 
     def get_expires(self):
-        return int(self.get('expires'))
+        return int(self.get('expires', 0))
 
     def get_request_date(self):
-        return datetime.datetime.strptime(self.get('date'), '%Y%m%dT%H%M%SZ')
+        try:
+            return datetime.datetime.strptime(self.get('date'), '%Y%m%dT%H%M%SZ')
+        except ValueError:
+            return datetime.datetime.strptime(self.get('date'), '%a, %d %b %Y %H:%M:%S GMT')
 
 
 class AuthenticationValidator:
-    def validate_mandatory_signed_headers(self, headers_to_sign):
-        if 'host' not in headers_to_sign:
-            raise EscherException('Host header is not signed')
+    def validate_mandatory_signed_headers(self, mandatory_signed_headers, headers_to_sign):
+        for header in mandatory_signed_headers:
+            if header not in headers_to_sign:
+                raise EscherException(f'The {header} header is not signed')
 
     def validate_hash_algo(self, hash_algo):
         if hash_algo not in ('SHA256', 'SHA512'):
@@ -149,26 +200,30 @@ class AuthenticationValidator:
 
     def validate_dates(self, current_date, request_date, credential_date, expires, clock_skew):
         if request_date.strftime('%Y%m%d') != credential_date.strftime('%Y%m%d'):
-            raise EscherException('The request date and credential date do not match')
+            raise EscherException('The credential date does not match with the request date')
 
         min_date = current_date - datetime.timedelta(seconds=(clock_skew + expires))
         max_date = current_date + datetime.timedelta(seconds=clock_skew)
         if request_date < min_date or request_date > max_date:
-            raise EscherException('Request date is not within the accepted time interval')
+            raise EscherException('The request date is not within the accepted time range')
 
     def validate_credential_scope(self, expected, actual):
         if actual != expected:
-            raise EscherException('Invalid credential scope (provided: ' + actual + ', required: ' + expected + ')')
+            raise EscherException('The credential scope is invalid')
 
     def validate_signature(self, expected, actual):
         if expected != actual:
-            raise EscherException('The signatures do not match (provided: ' + actual + ', calculated: ' + expected + ')')
+            raise EscherException('The signatures do not match')
 
 
 class Escher:
-    _normalize_path = re.compile('([^/]+/\.\./?|/\./|//|/\.$|/\.\.$)')
+    _normalize_path = re.compile(r'([^/]+/\.\./?|/\./|//|/\.$|/\.\.$)')
 
-    def __init__(self, credential_scope, options={}):
+    def __init__(self, api_key, api_secret, credential_scope, options=None):
+        if not options:
+            options = {}
+        self.api_key = api_key
+        self.api_secret = api_secret
         self.credential_scope = credential_scope
         self.algo_prefix = options.get('algo_prefix', 'ESR')
         self.vendor_key = options.get('vendor_key', 'Escher')
@@ -180,32 +235,91 @@ class Escher:
         self.algo = self.create_algo()
         self.algo_id = self.algo_prefix + '-HMAC-' + self.hash_algo
 
-    def sign(self, r, client, headers_to_sign=[]):
-        request = EscherRequest(r)
+    def sign_request(self, request, headers_to_sign=None):
+        request = EscherRequest(request)
+        request.set_presigned_url(False)
+
+        if not self.api_key or not self.api_secret:
+            raise EscherException('Invalid Escher key')
+
+        if not headers_to_sign:
+            headers_to_sign = []
+        headers_to_sign = [h.lower() for h in headers_to_sign]
 
         for header in [self.date_header_name.lower(), 'host']:
             if header not in headers_to_sign:
                 headers_to_sign.append(header)
 
-        current_time = self.current_time or datetime.datetime.utcnow()
-        request.add_header(self.date_header_name, self.long_date(current_time))
+        current_time = self.current_time or datetime.datetime.now(datetime.UTC)
 
-        signature = self.generate_signature(client['api_secret'], request, headers_to_sign, current_time)
+        if not request.has_header(self.date_header_name):
+            if self.date_header_name.lower() == 'date':
+                request.add_header(self.date_header_name, self.header_date(current_time))
+            else:
+                request.add_header(self.date_header_name, self.long_date(current_time))
+
+        signature = self.generate_signature(self.api_secret, request, headers_to_sign, current_time)
         request.add_header(self.auth_header_name, ", ".join([
-            self.algo_id + ' Credential=' + client['api_key'] + '/' + self.short_date(
+            self.algo_id + ' Credential=' + self.api_key + '/' + self.short_date(
                 current_time) + '/' + self.credential_scope,
             'SignedHeaders=' + self.prepare_headers_to_sign(headers_to_sign),
             'Signature=' + signature
         ]))
         return request.request
 
-    def authenticate(self, r, key_db):
-        request = EscherRequest(r)
+    def presign_url(self, url, expires):
+        current_time = self.current_time or datetime.datetime.now(datetime.UTC)
 
-        auth_params = AuthParams(request.query_parts(), self.vendor_key)
+        if not self.api_key or not self.api_secret:
+            raise EscherException('Invalid Escher key')
+
+        url_to_sign = url + ('&' if '?' in url else '?') + urlencode({
+            f'X-{self.vendor_key}-Algorithm': self.algo_id,
+            f'X-{self.vendor_key}-Credentials': self.api_key + '/' + self.short_date(current_time) + '/' + self.credential_scope,
+            f'X-{self.vendor_key}-Date': self.long_date(current_time),
+            f'X-{self.vendor_key}-Expires': expires,
+            f'X-{self.vendor_key}-SignedHeaders': 'host',
+        })
+
+        parts = urlsplit(url_to_sign)
+        request = EscherRequest({
+            'method': 'GET',
+            'url': f'{parts.path}?{parts.query}',
+            'headers': [['host', parts.hostname]],
+        })
+        request.set_presigned_url(True)
+        signature = self.generate_signature(self.api_secret, request, ['host'], current_time)
+
+        return url_to_sign + '&' + urlencode({
+            f'X-{self.vendor_key}-Signature': signature,
+        })
+
+    def authenticate(self, request, key_db, mandatory_signed_headers=None):
+        request = EscherRequest(request)
+
+        if mandatory_signed_headers is None:
+            mandatory_signed_headers = []
+        if not isinstance(mandatory_signed_headers, list) or not all([isinstance(h, str) for h in mandatory_signed_headers]):
+            raise EscherException('The mandatorySignedHeaders parameter must be undefined or array of strings')
+        mandatory_signed_headers = [h.lower() for h in mandatory_signed_headers]
+        mandatory_signed_headers.append('host')
+
+        if self.auth_header_name and request.has_header(self.auth_header_name):
+            auth_params = AuthParams.from_headers(request.headers(), self.algo_prefix, self.date_header_name, self.auth_header_name)
+            request.set_presigned_url(False)
+            mandatory_signed_headers.append(self.date_header_name.lower())
+        elif request.method() == 'GET' and request.has_query_param(f'X-{self.vendor_key}-Signature'):
+            auth_params = AuthParams.from_query_parts(request.query_parts(), self.vendor_key)
+            request.set_presigned_url(True)
+        else:
+            raise EscherException('The authorization header is missing')
+
         validator = AuthenticationValidator()
+        validator.validate_mandatory_signed_headers(mandatory_signed_headers, auth_params.get_signed_headers())
+        for header in mandatory_signed_headers:
+            if not request.has_header(header):
+                raise EscherException(f'The {header} header is missing')
 
-        validator.validate_mandatory_signed_headers(auth_params.get_signed_headers())
         validator.validate_hash_algo(auth_params.get_hash_algo())
         validator.validate_dates(
             self.current_time,
@@ -264,11 +378,17 @@ class Escher:
         return path
 
     def canonicalize_headers(self, headers, headers_to_sign):
-        headers_list = []
-        for key, value in sorted(headers):
-            if key.lower() in headers_to_sign:
-                headers_list.append(key.lower() + ':' + self.normalize_white_spaces(value))
-        return "\n".join(sorted(headers_list))
+        results = {}
+        for key, value in headers:
+            if key.lower() not in headers_to_sign:
+                continue
+
+            if key.lower() in results:
+                results[key.lower()] += ',' + self.normalize_white_spaces(value)
+            else:
+                results[key.lower()] = self.normalize_white_spaces(value)
+
+        return "\n".join([f'{key}:{results[key]}' for key in sorted(results.keys())])
 
     def normalize_white_spaces(self, value):
         index = 0
@@ -282,7 +402,7 @@ class Escher:
         return '"'.join(value_normalized).strip()
 
     def canonicalize_query(self, query_parts):
-        safe = "~+!'()*"
+        safe = "~+!'*"
         query_list = []
         for key, value in query_parts:
             if key == 'X-' + self.vendor_key + '-Signature':
@@ -303,6 +423,9 @@ class Escher:
             return sha256
         if self.hash_algo == 'SHA512':
             return sha512
+
+    def header_date(self, time):
+        return time.strftime('%a, %d %b %Y %H:%M:%S GMT')
 
     def long_date(self, time):
         return time.strftime('%Y%m%dT%H%M%SZ')

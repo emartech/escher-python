@@ -8,7 +8,7 @@ class EscherRequestTest(unittest.TestCase):
         request = EscherRequest({
             'method': 'GET',
             'host': 'host.foo.com',
-            'uri': '/?foo=bar',
+            'url': '/?foo=bar',
             'headers': [
                 ('Date', 'Mon, 09 Sep 2011 23:36:00 GMT'),
                 ('Host', 'host.foo.com'),
@@ -24,13 +24,13 @@ class EscherRequestTest(unittest.TestCase):
             ('Date', 'Mon, 09 Sep 2011 23:36:00 GMT'),
             ('Host', 'host.foo.com'),
         ])
-        self.assertEqual(request.body(), '')  # there was no body specified
+        self.assertEqual(request.body(), None)  # there was no body specified
 
     def test_object_complex(self):
         request = EscherRequest({
             'method': 'POST',
             'host': 'host.foo.com',
-            'uri': '/example/path/?foo=bar&abc=cba',
+            'url': '/example/path/?foo=bar&abc=cba',
             'headers': [],
             'body': 'HELLO WORLD!',
         })
@@ -48,9 +48,9 @@ class EscherRequestTest(unittest.TestCase):
         request = EscherRequest({
             'method': 'POST',
             'host': 'host.foo.com',
-            'uri': '/example/path/?foo=bar&abc=cba',
+            'url': '/example/path/?foo=bar&abc=cba',
             'headers': [],
             'body': 'HELLO WORLD!',
         })
         request.add_header('Foo', 'Bar')
-        self.assertListEqual(request.headers(), [('Foo', 'Bar')])
+        self.assertListEqual(request.headers(), [['Foo', 'Bar']])

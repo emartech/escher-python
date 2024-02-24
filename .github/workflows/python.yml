@@ -14,10 +14,12 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.7, 3.8, 3.9]
+        python-version: [3.8, 3.9, '3.10', '3.11', '3.12']
 
     steps:
       - uses: actions/checkout@v2
+        with:
+          submodules: recursive
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v2
         with:
@@ -27,11 +29,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install build
           pip install -r requirements-dev.txt
-      - name: Lint with pep8
+      - name: Lint with pycodestyle
         run: |
-          pep8 --ignore=E501 escherauth
+          pycodestyle --ignore=E501 escherauth
       - name: Test with nosetests
-        run: nosetests
+        run: nose2
       - name: Build package
         run: python -m build
       - name: Publish package

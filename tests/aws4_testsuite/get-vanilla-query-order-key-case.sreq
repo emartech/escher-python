@@ -1,6 +1,0 @@
-GET /?foo=Zoo&foo=aha http/1.1
-Date:Mon, 09 Sep 2011 23:36:00 GMT
-Host:host.foo.com
-Date:20110909T233600Z
-Authorization: AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20110909/us-east-1/host/aws4_request, SignedHeaders=date;host, Signature=4bf4c2208cf5f139a942d1bf68cba2d99311f57a73cd0ef96d6909a45c1b4a2f
-
