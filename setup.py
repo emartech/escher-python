@@ -1,9 +1,15 @@
 #!/usr/bin/env python
 from setuptools import setup
+from pathlib import Path
+
+this_directory = Path(__file__).parent
+long_description = (this_directory / 'README.md').read_text()
 
 setup(
     name='escherauth',
     description='Python implementation of the AWS4 compatible Escher HTTP request signing protocol.',
+    long_description=long_description,
+    long_description_content_type='text/markdown',
     version='1.0.0',
     author='Emarsys Security',
     author_email='security@emarsys.com',
