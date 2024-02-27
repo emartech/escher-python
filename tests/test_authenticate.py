@@ -41,7 +41,7 @@ class AuthParamsTest(unittest.TestCase):
 
     def test_get_credential_date(self):
         params = AuthParams.from_query_parts([('X-EMS-Credentials', 'th3K3y/20110511/us-east-1/host/aws4_request')], 'EMS')
-        self.assertEqual(datetime.datetime(2011, 5, 11, 0, 0), params.get_credential_date())
+        self.assertEqual(datetime.datetime(2011, 5, 11, 0, 0, tzinfo=datetime.timezone.utc), params.get_credential_date())
 
     def test_get_credential_scope(self):
         params = AuthParams.from_query_parts([('X-EMS-Credentials', 'th3K3y/20110511/us-east-1/host/aws4_request')], 'EMS')
@@ -53,7 +53,7 @@ class AuthParamsTest(unittest.TestCase):
 
     def test_get_request_date(self):
         params = AuthParams.from_query_parts([('X-EMS-Date', '20110511T120000Z')], 'EMS')
-        self.assertEqual(datetime.datetime(2011, 5, 11, 12, 0), params.get_request_date())
+        self.assertEqual(datetime.datetime(2011, 5, 11, 12, 0, tzinfo=datetime.timezone.utc), params.get_request_date())
 
 
 class AuthenticationValidatorTest(unittest.TestCase):
@@ -76,14 +76,14 @@ class AuthenticationValidatorTest(unittest.TestCase):
 
     def test_validate_dates_date_mismatch(self):
         try:
-            self.validator.validate_dates(datetime.datetime(2011, 5, 11, 12, 0), datetime.datetime(2011, 5, 11, 12, 0), datetime.datetime(2011, 5, 10, 0, 0), 60, 300)
+            self.validator.validate_dates(datetime.datetime(2011, 5, 11, 12, 0, tzinfo=datetime.timezone.utc), datetime.datetime(2011, 5, 11, 12, 0, tzinfo=datetime.timezone.utc), datetime.datetime(2011, 5, 10, 0, 0, tzinfo=datetime.timezone.utc), 60, 300)
             self.fail('No exception thrown')
         except EscherException as e:
             self.assertEqual('The credential date does not match with the request date', str(e))
 
     def test_validate_dates_date_out_of_range(self):
         try:
-            self.validator.validate_dates(datetime.datetime(2011, 5, 11, 12, 10), datetime.datetime(2011, 5, 11, 12, 0), datetime.datetime(2011, 5, 11, 0, 0), 60, 300)
+            self.validator.validate_dates(datetime.datetime(2011, 5, 11, 12, 10, tzinfo=datetime.timezone.utc), datetime.datetime(2011, 5, 11, 12, 0, tzinfo=datetime.timezone.utc), datetime.datetime(2011, 5, 11, 0, 0, tzinfo=datetime.timezone.utc), 60, 300)
             self.fail('No exception thrown')
         except EscherException as e:
             self.assertEqual('The request date is not within the accepted time range', str(e))
@@ -141,7 +141,7 @@ class AuthenticateTest(unittest.TestCase):
             'vendor_key': 'EMS',
             'algo_prefix': 'EMS',
             'hash_algo': 'SHA256',
-            'current_time': datetime.datetime.strptime(current_time, '%Y-%m-%dT%H:%M:%S.%fZ')
+            'current_time': datetime.datetime.strptime(current_time, '%Y-%m-%dT%H:%M:%S.%fZ').replace(tzinfo=datetime.timezone.utc)
         }
 
     def get_request(self, uri):

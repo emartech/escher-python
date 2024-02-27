@@ -94,7 +94,7 @@ class TestCase:
         current_time = None
         for format in time_formats:
             try:
-                current_time = datetime.datetime.strptime(self.__data['config']['date'], format)
+                current_time = datetime.datetime.strptime(self.__data['config']['date'], format).replace(tzinfo=datetime.timezone.utc)
             except ValueError:
                 pass
 

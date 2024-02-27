@@ -14,12 +14,11 @@ class EscherException(Exception):
 
 
 class EscherRequestsAuth(requests.auth.AuthBase):
-    def __init__(self, credential_scope, options, client):
-        self.escher = Escher(credential_scope, options)
-        self.client = client
+    def __init__(self, api_key, api_secret, credential_scope, options=None):
+        self.escher = Escher(api_key, api_secret, credential_scope, options)
 
     def __call__(self, request):
-        return self.escher.sign_request(request, self.client)
+        return self.escher.sign_request(request)
 
 
 class EscherRequest:
@@ -89,7 +88,7 @@ class EscherRequest:
         if self.is_presigned_url:
             return 'UNSIGNED-PAYLOAD'
         if self.type is requests.models.PreparedRequest:
-            return self.request.body or None
+            return self.request.body.decode('utf-8') or None
         if self.type is dict:
             return self.request.get('body')
 
@@ -173,7 +172,7 @@ class AuthParams:
         return self.get_credential_data()[0]
 
     def get_credential_date(self):
-        return datetime.datetime.strptime(self.get_credential_data()[1], '%Y%m%d')
+        return datetime.datetime.strptime(self.get_credential_data()[1], '%Y%m%d').replace(tzinfo=datetime.timezone.utc)
 
     def get_credential_scope(self):
         return self.get_credential_data()[2]
@@ -183,9 +182,9 @@ class AuthParams:
 
     def get_request_date(self):
         try:
-            return datetime.datetime.strptime(self.get('date'), '%Y%m%dT%H%M%SZ')
+            return datetime.datetime.strptime(self.get('date'), '%Y%m%dT%H%M%SZ').replace(tzinfo=datetime.timezone.utc)
         except ValueError:
-            return datetime.datetime.strptime(self.get('date'), '%a, %d %b %Y %H:%M:%S GMT')
+            return datetime.datetime.strptime(self.get('date'), '%a, %d %b %Y %H:%M:%S GMT').replace(tzinfo=datetime.timezone.utc)
 
 
 class AuthenticationValidator:
@@ -250,7 +249,7 @@ class Escher:
             if header not in headers_to_sign:
                 headers_to_sign.append(header)
 
-        current_time = self.current_time or datetime.datetime.now(datetime.UTC)
+        current_time = self.current_time or datetime.datetime.now(datetime.timezone.utc)
 
         if not request.has_header(self.date_header_name):
             if self.date_header_name.lower() == 'date':
@@ -268,7 +267,7 @@ class Escher:
         return request.request
 
     def presign_url(self, url, expires):
-        current_time = self.current_time or datetime.datetime.now(datetime.UTC)
+        current_time = self.current_time or datetime.datetime.now(datetime.timezone.utc)
 
         if not self.api_key or not self.api_secret:
             raise EscherException('Invalid Escher key')
@@ -295,6 +294,8 @@ class Escher:
         })
 
     def authenticate(self, request, key_db, mandatory_signed_headers=None):
+        current_time = self.current_time or datetime.datetime.now(datetime.timezone.utc)
+
         request = EscherRequest(request)
 
         if mandatory_signed_headers is None:
@@ -322,7 +323,7 @@ class Escher:
 
         validator.validate_hash_algo(auth_params.get_hash_algo())
         validator.validate_dates(
-            self.current_time,
+            current_time,
             auth_params.get_request_date(),
             auth_params.get_credential_date(),
             auth_params.get_expires(),

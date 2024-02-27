@@ -1,1 +1,1 @@
-from escherauth import *
+from .escherauth import *
