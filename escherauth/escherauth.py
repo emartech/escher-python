@@ -284,7 +284,7 @@ class Escher:
         request = EscherRequest({
             'method': 'GET',
             'url': f'{parts.path}?{parts.query}',
-            'headers': [['host', parts.hostname]],
+            'headers': [['host', parts.netloc]],
         })
         request.set_presigned_url(True)
         signature = self.generate_signature(self.api_secret, request, ['host'], current_time)
