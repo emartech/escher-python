@@ -10,7 +10,7 @@ setup(
     description='Python implementation of the AWS4 compatible Escher HTTP request signing protocol.',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    version='1.0.1',
+    version='1.0.2',
     author='Emarsys Security',
     author_email='security@emarsys.com',
     license='MIT',
