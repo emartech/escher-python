@@ -88,7 +88,10 @@ class EscherRequest:
         if self.is_presigned_url:
             return 'UNSIGNED-PAYLOAD'
         if self.type is requests.models.PreparedRequest:
-            return self.request.body.decode('utf-8') or None
+            if isinstance(self.request.body, bytes):
+                return self.request.body.decode('utf-8')
+            else:
+                return self.request.body or ''
         if self.type is dict:
             return self.request.get('body')
 
@@ -369,7 +372,7 @@ class Escher:
             self.canonicalize_headers(req.headers(), headers_to_sign),
             '',
             self.prepare_headers_to_sign(headers_to_sign),
-            self.algo(req.body().encode('utf-8')).hexdigest()
+            self.algo((req.body() or '').encode('utf-8')).hexdigest()
         ])
 
     def canonicalize_path(self, path):
