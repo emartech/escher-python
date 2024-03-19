@@ -20,8 +20,9 @@ from escherauth import Escher
 request = {
     'method': 'POST',
     'url': '/',
+    'host': 'example.com',
     'headers': [
-        ['Host', 'example.com'],
+        ['X-Foo', 'bar'],
     ],
     'body': '{"this_is": "a_request_body"}',
 }

@@ -1,56 +1,171 @@
 import unittest
 
-from escherauth.escherauth import EscherRequest
+import requests
+
+from escherauth.escherauth import EscherRequest, EscherException
 
 
 class EscherRequestTest(unittest.TestCase):
-    def test_object_basic(self):
+    def test_invalid_http_method(self):
+        with self.assertRaisesRegex(EscherException, 'The request method is invalid'):
+            EscherRequest({
+                'method': 'INVALID',
+                'url': '/?foo=bar',
+            })
+
+    def test_invalid_path(self):
+        with self.assertRaisesRegex(EscherException, 'The request url shouldn\'t contains http or https'):
+            EscherRequest({
+                'method': 'GET',
+                'url': 'http://localhost/?foo=bar',
+            })
+
+    def test_no_body(self):
+        with self.assertRaisesRegex(EscherException, 'The request body shouldn\'t be empty if the request method is POST'):
+            EscherRequest({
+                'method': 'POST',
+                'url': '/?foo=bar',
+            })
+
+    def test_dict_method(self):
         request = EscherRequest({
             'method': 'GET',
-            'host': 'host.foo.com',
             'url': '/?foo=bar',
-            'headers': [
-                ('Date', 'Mon, 09 Sep 2011 23:36:00 GMT'),
-                ('Host', 'host.foo.com'),
-            ],
         })
+
         self.assertEqual(request.method(), 'GET')
-        self.assertEqual(request.host(), 'host.foo.com')
+
+    def test_prepared_request_method(self):
+        request = EscherRequest(requests.Request('GET', 'http://localhost/?foo=bar').prepare())
+
+        self.assertEqual(request.method(), 'GET')
+
+    def test_dict_host(self):
+        request = EscherRequest({
+            'method': 'GET',
+            'url': '/?foo=bar',
+            'host': 'localhost:8080'
+        })
+
+        self.assertEqual(request.host(), 'localhost:8080')
+
+    def test_prepared_request_host(self):
+        request = EscherRequest(requests.Request('GET', 'http://localhost:8080/?foo=bar').prepare())
+
+        self.assertEqual(request.host(), 'localhost:8080')
+
+    def test_dict_path(self):
+        request = EscherRequest({
+            'method': 'GET',
+            'url': '/?foo=bar',
+        })
+
         self.assertEqual(request.path(), '/')
-        self.assertListEqual(request.query_parts(), [
-            ('foo', 'bar'),
-        ])
-        self.assertListEqual(request.headers(), [
-            ('Date', 'Mon, 09 Sep 2011 23:36:00 GMT'),
-            ('Host', 'host.foo.com'),
-        ])
-        self.assertEqual(request.body(), None)  # there was no body specified
 
-    def test_object_complex(self):
+    def test_prepared_request_path(self):
+        request = EscherRequest(requests.Request('GET', 'http://localhost/?foo=bar').prepare())
+
+        self.assertEqual(request.path(), '/')
+
+    def test_dict_query_parts(self):
+        request = EscherRequest({
+            'method': 'GET',
+            'url': '/?foo=bar',
+        })
+
+        self.assertEqual(request.query_parts(), [('foo', 'bar')])
+
+    def test_prepared_request_query_parts(self):
+        request = EscherRequest(requests.Request('GET', 'http://localhost/?foo=bar').prepare())
+
+        self.assertEqual(request.query_parts(), [('foo', 'bar')])
+
+    def test_dict_has_query_param(self):
+        request = EscherRequest({
+            'method': 'GET',
+            'url': '/?foo=bar',
+        })
+
+        self.assertTrue(request.has_query_param('foo'))
+        self.assertFalse(request.has_query_param('bar'))
+
+    def test_prepared_request_has_query_param(self):
+        request = EscherRequest(requests.Request('GET', 'http://localhost/?foo=bar').prepare())
+
+        self.assertTrue(request.has_query_param('foo'))
+        self.assertFalse(request.has_query_param('bar'))
+
+    def test_dict_headers(self):
+        request = EscherRequest({
+            'method': 'GET',
+            'url': '/?foo=bar',
+            'headers': [['Foo', 'bar']],
+        })
+
+        self.assertListEqual(request.headers(), [['Foo', 'bar']])
+
+    def test_prepared_request_headers(self):
+        request = EscherRequest(requests.Request('GET', 'http://localhost/?foo=bar', headers={'Foo': 'bar'}).prepare())
+
+        self.assertListEqual(request.headers(), [['Foo', 'bar']])
+
+    def test_dict_has_header(self):
+        request = EscherRequest({
+            'method': 'GET',
+            'url': '/?foo=bar',
+            'headers': [['Foo', 'bar']],
+        })
+
+        self.assertTrue(request.has_header('foo'))
+        self.assertFalse(request.has_header('bar'))
+
+    def test_prepared_request_has_header(self):
+        request = EscherRequest(requests.Request('GET', 'http://localhost/?foo=bar', headers={'Foo': 'bar'}).prepare())
+
+        self.assertTrue(request.has_header('foo'))
+        self.assertFalse(request.has_header('bar'))
+
+    def test_presigned_url_body(self):
+        request = EscherRequest({
+            'method': 'GET',
+            'url': '/?foo=bar',
+        })
+        request.set_presigned_url(True)
+
+        self.assertEqual(request.body(), 'UNSIGNED-PAYLOAD')
+
+    def test_dict_body(self):
         request = EscherRequest({
             'method': 'POST',
-            'host': 'host.foo.com',
-            'url': '/example/path/?foo=bar&abc=cba',
-            'headers': [],
-            'body': 'HELLO WORLD!',
+            'url': '/?foo=bar',
+            'body': 'foo',
         })
-        self.assertEqual(request.method(), 'POST')
-        self.assertEqual(request.host(), 'host.foo.com')
-        self.assertEqual(request.path(), '/example/path/')
-        self.assertListEqual(request.query_parts(), [
-            ('foo', 'bar'),
-            ('abc', 'cba'),
-        ])
-        self.assertListEqual(request.headers(), [])
-        self.assertEqual(request.body(), 'HELLO WORLD!')
 
-    def test_object_add_header(self):
+        self.assertEqual(request.body(), 'foo')
+
+    def test_prepared_request_body(self):
+        request = EscherRequest(requests.Request('POST', 'http://localhost/?foo=bar', data='foo').prepare())
+
+        self.assertEqual(request.body(), 'foo')
+
+    def test_prepared_request_byte_body(self):
+        request = EscherRequest(requests.Request('POST', 'http://localhost/?foo=bar', data=b'foo').prepare())
+
+        self.assertEqual(request.body(), 'foo')
+
+    def test_dict_add_header(self):
         request = EscherRequest({
-            'method': 'POST',
-            'host': 'host.foo.com',
-            'url': '/example/path/?foo=bar&abc=cba',
-            'headers': [],
-            'body': 'HELLO WORLD!',
+            'method': 'GET',
+            'url': '/?foo=bar',
         })
-        request.add_header('Foo', 'Bar')
-        self.assertListEqual(request.headers(), [['Foo', 'Bar']])
+
+        self.assertFalse(request.has_header('bar'))
+        request.add_header('Bar', 'baz')
+        self.assertTrue(request.has_header('bar'))
+
+    def test_prepared_request_add_header(self):
+        request = EscherRequest(requests.Request('GET', 'http://localhost/?foo=bar').prepare())
+
+        self.assertFalse(request.has_header('bar'))
+        request.add_header('Bar', 'baz')
+        self.assertTrue(request.has_header('bar'))

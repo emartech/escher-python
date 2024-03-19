@@ -59,7 +59,8 @@ class EscherRequest:
 
     def host(self):
         if self.type is requests.models.PreparedRequest:
-            return self.request.host
+            parts = urlsplit(self.request.url)
+            return parts.netloc
         if self.type is dict:
             return self.request['host']
 
@@ -74,12 +75,9 @@ class EscherRequest:
 
     def headers(self):
         if self.type is requests.models.PreparedRequest:
-            headers = []
-            for key, value in self.request.headers.items():
-                headers.append([key, value])
-            return headers
+            return [[key, value] for key, value in self.request.headers.items()]
         if self.type is dict:
-            return self.request['headers']
+            return self.request.get('headers', [])
 
     def has_header(self, header):
         return header.lower() in [key.lower() for key, value in self.headers()]
@@ -99,6 +97,8 @@ class EscherRequest:
         if self.type is requests.models.PreparedRequest:
             self.request.headers[header] = value
         if self.type is dict:
+            if 'headers' not in self.request:
+                self.request['headers'] = []
             self.request['headers'].append([header, value])
 
     def set_presigned_url(self, is_presigned_url):
@@ -254,6 +254,8 @@ class Escher:
 
         current_time = self.current_time or datetime.datetime.now(datetime.timezone.utc)
 
+        if not request.has_header('host'):
+            request.add_header('Host', request.host())
         if not request.has_header(self.date_header_name):
             if self.date_header_name.lower() == 'date':
                 request.add_header(self.date_header_name, self.header_date(current_time))
