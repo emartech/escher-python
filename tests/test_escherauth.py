@@ -115,6 +115,21 @@ class EscherAuthEndToEndTest(unittest.TestCase):
 
         try:
             request = escher.sign_request(test_case.request, test_case.headers_to_sign)
+            if 'canonicalizedRequest' in test_case.expected:
+                self.assertEqual(
+                    escher.debug_info['canonicalized_request'],
+                    test_case.expected['canonicalizedRequest']
+                )
+            if 'stringToSign' in test_case.expected:
+                self.assertEqual(
+                    escher.debug_info['string_to_sign'],
+                    test_case.expected['stringToSign']
+                )
+            if 'authHeader' in test_case.expected:
+                self.assertEqual(
+                    escher.debug_info['auth_header_value'],
+                    test_case.expected['authHeader']
+                )
             if 'request' in test_case.expected:
                 self.assertEqual(request, test_case.expected['request'])
             else:

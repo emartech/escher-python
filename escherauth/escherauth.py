@@ -236,6 +236,7 @@ class Escher:
         self.clock_skew = options.get('clock_skew', 300)
         self.algo = self.create_algo()
         self.algo_id = self.algo_prefix + '-HMAC-' + self.hash_algo
+        self.debug_info = {}
 
     def sign_request(self, request, headers_to_sign=None):
         request = EscherRequest(request)
@@ -262,13 +263,14 @@ class Escher:
             else:
                 request.add_header(self.date_header_name, self.long_date(current_time))
 
-        signature = self.generate_signature(self.api_secret, request, headers_to_sign, current_time)
-        request.add_header(self.auth_header_name, ", ".join([
-            self.algo_id + ' Credential=' + self.api_key + '/' + self.short_date(
-                current_time) + '/' + self.credential_scope,
+        auth_header_value = self.algo_id + ' ' + ', '.join([
+            'Credential=' + self.credential(current_time),
             'SignedHeaders=' + self.prepare_headers_to_sign(headers_to_sign),
-            'Signature=' + signature
-        ]))
+            'Signature=' + self.generate_signature(self.api_secret, request, headers_to_sign, current_time),
+        ])
+        request.add_header(self.auth_header_name, auth_header_value)
+        self.debug_info['auth_header_value'] = auth_header_value
+
         return request.request
 
     def presign_url(self, url, expires):
@@ -279,7 +281,7 @@ class Escher:
 
         url_to_sign = url + ('&' if '?' in url else '?') + urlencode({
             f'X-{self.vendor_key}-Algorithm': self.algo_id,
-            f'X-{self.vendor_key}-Credentials': self.api_key + '/' + self.short_date(current_time) + '/' + self.credential_scope,
+            f'X-{self.vendor_key}-Credentials': self.credential(current_time),
             f'X-{self.vendor_key}-Date': self.long_date(current_time),
             f'X-{self.vendor_key}-Expires': expires,
             f'X-{self.vendor_key}-SignedHeaders': 'host',
@@ -360,6 +362,9 @@ class Escher:
         canonicalized_request = self.canonicalize(req, headers_to_sign)
         string_to_sign = self.get_string_to_sign(canonicalized_request, current_time)
 
+        self.debug_info['canonicalized_request'] = canonicalized_request
+        self.debug_info['string_to_sign'] = string_to_sign
+
         signing_key = self.hmac_digest(self.algo_prefix + api_secret, self.short_date(current_time))
         for data in self.credential_scope.split('/'):
             signing_key = self.hmac_digest(signing_key, data)
@@ -408,7 +413,7 @@ class Escher:
         return '"'.join(value_normalized).strip()
 
     def canonicalize_query(self, query_parts):
-        safe = "~+!'*"
+        safe = "!*"
         query_list = []
         for key, value in query_parts:
             if key == 'X-' + self.vendor_key + '-Signature':
@@ -429,6 +434,9 @@ class Escher:
             return sha256
         if self.hash_algo == 'SHA512':
             return sha512
+
+    def credential(self, time):
+        return self.api_key + '/' + self.short_date(time) + '/' + self.credential_scope
 
     def header_date(self, time):
         return time.strftime('%a, %d %b %Y %H:%M:%S GMT')
