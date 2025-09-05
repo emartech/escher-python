@@ -279,7 +279,8 @@ class Escher:
         if not self.api_key or not self.api_secret:
             raise EscherException('Invalid Escher key')
 
-        url_to_sign = url + ('&' if '?' in url else '?') + urlencode({
+        original_parts = url.split('#', 1)
+        url_to_sign = original_parts[0] + ('&' if '?' in url else '?') + urlencode({
             f'X-{self.vendor_key}-Algorithm': self.algo_id,
             f'X-{self.vendor_key}-Credentials': self.credential(current_time),
             f'X-{self.vendor_key}-Date': self.long_date(current_time),
@@ -298,7 +299,7 @@ class Escher:
 
         return url_to_sign + '&' + urlencode({
             f'X-{self.vendor_key}-Signature': signature,
-        })
+        }) + ('#' + original_parts[1] if len(original_parts) > 1 else '')
 
     def authenticate(self, request, key_db, mandatory_signed_headers=None):
         current_time = self.current_time or datetime.datetime.now(datetime.timezone.utc)

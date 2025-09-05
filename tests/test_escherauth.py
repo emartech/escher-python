@@ -53,25 +53,22 @@ class TestCase:
         return self.__data.get('mandatorySignedHeaders')
 
     @property
-    def sign_options(self):
-        return {
-            'algo_prefix': self.__data['config'].get('algoPrefix'),
-            'vendor_key': self.__data['config'].get('vendorKey'),
-            'hash_algo': self.__data['config'].get('hashAlgo'),
-            'auth_header_name': self.__data['config'].get('authHeaderName'),
-            'date_header_name': self.__data['config'].get('dateHeaderName'),
+    def escher_options(self):
+        options = {
             'current_time': self.__get_current_time(),
         }
+        if self.__data['config'].get('algoPrefix'):
+            options['algo_prefix'] = self.__data['config'].get('algoPrefix')
+        if self.__data['config'].get('vendorKey'):
+            options['vendor_key'] = self.__data['config'].get('vendorKey')
+        if self.__data['config'].get('authHeaderName'):
+            options['auth_header_name'] = self.__data['config'].get('authHeaderName')
+        if self.__data['config'].get('dateHeaderName'):
+            options['date_header_name'] = self.__data['config'].get('dateHeaderName')
+        if self.__data['config'].get('hashAlgo'):
+            options['hash_algo'] = self.__data['config'].get('hashAlgo')
 
-    @property
-    def authenticate_options(self):
-        return {
-            'algo_prefix': self.__data['config'].get('algoPrefix'),
-            'vendor_key': self.__data['config'].get('vendorKey'),
-            'auth_header_name': self.__data['config'].get('authHeaderName'),
-            'date_header_name': self.__data['config'].get('dateHeaderName'),
-            'current_time': self.__get_current_time(),
-        }
+        return options
 
     @property
     def api_key(self):
@@ -111,7 +108,7 @@ class EscherAuthEndToEndTest(unittest.TestCase):
 
     @params(*TestCase.get_case_files('signrequest'))
     def test_sign_request(self, test_case: TestCase):
-        escher = Escher(test_case.api_key, test_case.api_secret, test_case.credential_scope, test_case.sign_options)
+        escher = Escher(test_case.api_key, test_case.api_secret, test_case.credential_scope, test_case.escher_options)
 
         try:
             request = escher.sign_request(test_case.request, test_case.headers_to_sign)
@@ -142,7 +139,7 @@ class EscherAuthEndToEndTest(unittest.TestCase):
 
     @params(*TestCase.get_case_files('authenticate'))
     def test_authenticate(self, test_case: TestCase):
-        escher = Escher(test_case.api_key, test_case.api_secret, test_case.credential_scope, test_case.authenticate_options)
+        escher = Escher(test_case.api_key, test_case.api_secret, test_case.credential_scope, test_case.escher_options)
 
         try:
             api_key = escher.authenticate(test_case.request, test_case.key_db, test_case.mandatory_signed_headers)
@@ -158,7 +155,7 @@ class EscherAuthEndToEndTest(unittest.TestCase):
 
     @params(*TestCase.get_case_files('presignurl'))
     def test_presign_url(self, test_case: TestCase):
-        escher = Escher(test_case.api_key, test_case.api_secret, test_case.credential_scope, test_case.sign_options)
+        escher = Escher(test_case.api_key, test_case.api_secret, test_case.credential_scope, test_case.escher_options)
         url = escher.presign_url(test_case.request['url'], test_case.request['expires'])
 
         self.assertEqual(url, test_case.expected['url'])
